@@ -1,0 +1,234 @@
+####################################### 
+#######################################
+# 
+#   ANÁLISE FATORIAL CONFIRMATÓRIA 
+#   Escala de Expectativas Acadêmicas
+#   Ensino Médio Integrado
+#######################################
+#######################################
+
+# install.packages("haven")
+# install.packages("lavaan")
+# install.packages("semPlot")
+
+library(haven)
+library(lavaan)
+library(semPlot)
+
+
+dados <- read_sav("EEAEMI.sav")
+# Os itens devem estar em formator numérico, então vamos nos livrar das labels
+dados <- zap_labels(dados)
+
+EA <- dados[,paste0("EEAEMI",1:6)]
+
+############ Modelo multifatorial #######################
+
+# Existem três etapas para se trabalhar com o lavaan:
+
+# 1- Definir o modelo com uma fórmula
+# 2- Ajustar o modelo aos dados com as funções sem() ou cfa()
+# 3- Extrair os resultados com summary() ou lavInspect()
+
+
+# 1- Definindo o modelo
+
+# Fórmulas descrevem relações entre variáveis
+# Um exemplo de fórmula básica, o modelo linear:
+#  VD ~ VI1 + VI2
+
+# No lavaan podemos utilizar novos operadores.
+
+# =~ define a relação de fatores com os itens. 
+# Aqui, o fator latente fica do lado esquerdo do operador
+# Ex: "Fator =~ item1 + item2 + item3"
+
+
+# ~~ define a correlação entre dois indicadores ou fatores.
+# Ex: "item1 ~~ item2"
+
+# ~ define relações estruturais (regressões)
+# A VD (resultado) fica no lado esquerdo do ~ e as VIs (preditores) do lado direito
+#  Ex: "y ~ x1 + x2"
+
+# efa('label')* identifica que o fator latente faz parte uma AFE
+
+# Para fixar valores, restringir igualdades e modificar valores iniciais:
+# https://lavaan.ugent.be/tutorial/syntax2.html
+
+modelo_multi <- "f1 =~ EA1 + EA2 + EA3 + EA + LOTR5 + LOTR6"
+
+# 2- Ajustando o modelo:
+cfa_uni <- cfa(model = modelo_uni, 
+               data=dados, 
+               ordered=names(lotr), # Nome das variáveis ordinais
+               estimator= "wlsmv")  # Estimador
+                  
+# Lista completa de estimadores do lavaan e suas carcterísticas:
+# https://lavaan.ugent.be/tutorial/est.html
+
+
+# 3- Extraindo os resultados
+summary(cfa_uni, 
+        fit.measures=TRUE,    # Ãndices de ajuste
+        rsquare= TRUE,           # variÃ¢ncia explicada dos itens
+        standardized= TRUE)   # Escores padronizados
+
+
+# Visualizando o modelo
+semPlot::semPaths(object = cfa_uni, 
+                  what = "std",
+                  style = "lisrel",
+                  intercepts = FALSE, thresholds = FALSE, residuals = FALSE,
+                  edge.label.cex = 1.3,  label.cex= 1.3,
+                  weighted= FALSE,
+                  edge.color = "black"
+                  )
+
+# Índices de modificação
+modindices(object = cfa_uni, 
+           sort. = T,              # Ordenar do maior para o menor
+           maximum.number = 15)    # Número de índices na tabela
+
+### Inserindo correlaÃ§Ãµes residuais #####
+
+modelo_resid <- "f1 =~ LOTR1 + LOTR2 + LOTR3 + LOTR4 + LOTR5 + LOTR6
+LOTR1 ~~ LOTR3"
+
+cfa_resid <- cfa(modelo_resid, data = lotr, ordered = names(lotr), 
+                      estimator= "wlsmv")
+
+summary(cfa_resid, fit.measures= TRUE, rsquare= TRUE, standardized= TRUE)
+
+semPaths(cfa_resid, what = "std",
+         style = "lisrel",
+         intercepts = FALSE, thresholds = FALSE, residuals = FALSE,
+         edge.label.cex = 1.3,  label.cex= 1.3,
+         weighted= FALSE,
+         edge.color = "black")
+
+
+############ Modelo multifatorial #######################
+
+
+modelo_bi <- "
+Otimismo =~ LOTR1 + LOTR3 + LOTR6
+Pessimismo =~ LOTR2 + LOTR4 + LOTR5
+"
+cfa_bi <- cfa(modelo_bi, data = lotr, ordered = names(lotr),
+                 estimator= "wlsmv")
+
+summary(cfa_bi, fit.measures= TRUE, rsquare= TRUE, standardized= TRUE)
+
+semPaths(cfa_bi, what = "std",
+         style = "lisrel",
+         intercepts = FALSE, thresholds = FALSE, residuals = FALSE,
+         edge.label.cex = 1.3,  label.cex= 1.3,
+         weighted= FALSE,
+         edge.color = "black"
+         )
+modindices(cfa_bi, sort. = TRUE, maximum.number = 15)
+
+
+
+
+##### Exemplo 2 ############
+
+mrp <- dados[28:52]
+
+modelo_mrp <- "
+Extroversao =~ MRP1 + MRP6 + MRP11 + MRP16 + MRP21
+Socializacao =~ MRP2 + MRP7 + MRP12 + MRP17 + MRP22
+Conscienciosidade =~ MRP3 + MRP8 + MRP13 + MRP18 + MRP23
+Neuroticismo =~ MRP4 + MRP9 + MRP14 + MRP19 + MRP24
+Abertura =~ MRP5 + MRP10 + MRP15 + MRP20 + MRP25
+"
+cfa_mrp <- cfa(modelo_mrp, data = mrp, ordered =TRUE, 
+              estimator= "wlsmv")
+
+summary(cfa_mrp, fit.measures= TRUE, rsquare= TRUE, standardized= TRUE)
+
+semPaths(cfa_mrp, what = "std",
+         style = "lisrel",  layout = "circle",
+         intercepts = FALSE, thresholds = FALSE, residuals = FALSE,
+         edge.label.cex = 1.3, label.cex= 1,
+         weighted= FALSE,
+         mar = c(1.5,0.8,3,0.3),
+         # edge.color = "black"
+)
+modindices(cfa_mrp, sort. = TRUE, maximum.number = 15)
+
+
+
+### Medidas de fidedignidade #######
+
+#  A funÃ§Ã£o abaixo calcula a fidedignidade composta com os argumentos:
+# x= vetor com as cargas fatoriais padronizadas
+composite_reliability <- function(x, reduce=TRUE, cutoff= 0.3) {
+  stopifnot(is.vector(x))
+  
+  cargas = abs(x)
+  if (isTRUE(reduce)){
+    cargas = cargas[cargas > 0.3] 
+  } else{
+    cargas = cargas
+  }
+  e = 1 - cargas^2
+  cr= sum(cargas)^2 / (sum(cargas)^2 + sum(e))
+  return(cr)
+}
+
+cargas_lotr <- inspect(object = cfa_uni, what = "std")$lambda
+
+# O lavaan armazena as cargas fatoriais em uma matriz, logo usamos os comandos:
+composite_reliability(cargas_lotr[,1]) # Para modelo unifatorial
+
+# Para modelo multifatorial
+cargas_mrp <- inspect(object = cfa_mrp, what = "std")$lambda
+apply(cargas_mrp, 2, composite_reliability) 
+
+
+############ Bootstrapping #######################
+
+# O bootstrapping pode ser requisitado dentro das funÃ§Ãµes cfa() e sem() para 
+# gerar erros padrÃ£o e valores-p robustos.
+# No entanto, esta escolha nÃ£o Ã© compatÃ­vel com os estimadores WLSMV, MLMV e ULSMV. 
+
+# Como alternativa, os intervalos de confianÃ§a podem ser gerados com a funÃ§Ã£o bootstrapLavaan()
+
+fitmeasures(cfa_bi)
+standardizedsolution(cfa_bi)$est.std
+
+boot_bi <- bootstrapLavaan(object = cfa_bi, 
+                           R = 1000, 
+                           # FUN precisa retornar um vetor
+                           # FUN= function(x) standardizedSolution(x)$est.std, # parÃ¢metros
+                           # FUN= function(x) fitmeasures, # Ã­ndices de ajuste
+                           FUN= boot_param,
+                           type = "nonparametric", 
+                           verbose = TRUE, # Mostra o progresso no console
+                           parallel = "multicore", # acelera o cÃ¡lculo
+                           ncpus = 8 # NUNCA use todos os nÃºcleos do processador
+                           # Use Ctrl + Shift + Esc e, na aba desempenho,
+                           # veja o nÃºmero de processadores lÃ³gicos 
+                           )
+quantile(boot_bi[,1], c(.025, .975), na.rm=TRUE) # um parÃ¢metro
+
+cfa_bi_ci <- apply(boot_bi, MARGIN = 2, quantile, c(.025, .975), na.rm=TRUE)
+cfa_bi_ci <- round( t(cfa_bi_ci), 3)
+
+tabela_ci <- cbind(standardizedSolution(cfa_bi, ci = FALSE, se = FALSE), cfa_bi_ci)
+
+# openxlsx::write.xlsx(x = tabela_ci, file = "tabela_ci.xlsx")
+
+# Exemplo de funÃ§Ã£o para extrair os coeficientes e os Ã­ndices de ajuste.
+boot_param <- function(x) {
+  est <- standardizedsolution(x)
+  nomes_p <- paste0(est$lhs, est$op, est$rhs)
+  
+  fit_indices <- fitmeasures(x)
+  
+  param <- c(est$est.std, fit_indices)
+  names(param) <- c(nomes_p, names(fit_indices))
+  return(param)
+}
